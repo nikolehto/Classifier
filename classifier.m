@@ -90,13 +90,13 @@ function classify()
     
     load(training_data_file, 'trainingData'); 
     load(training_data_file, 'class_trainingData');
-    
+    %trainingData = standardize(trainingData);
     [m, n] = size(trainingData);
     
-    learn_data = trainingData(1:5000,:);
-    learn_classes = class_trainingData(1:5000);
-    test_data = trainingData(5001:end,:);
-    test_classes = class_trainingData(5001:end);
+    learn_data = trainingData(1:500,:);
+    learn_classes = class_trainingData(1:500);
+    test_data = trainingData(501:750,:);
+    test_classes = class_trainingData(501:750);
     clear trainingData;
     clear class_trainingData;
 
@@ -316,4 +316,33 @@ end
 %  (You can delete this if you wish!)
 function d = myDistanceFunction( x, y )
     d = sqrt( sum( (x - y).^2 ) );
+end
+
+% From ex7
+function [feat_out] = standardize(feat_in)
+    N = size(feat_in,1); 
+    % centering
+    feat_cent = feat_in-repmat(mean(feat_in), N, 1);
+    % standardization
+    feat_stand = feat_cent./repmat(std(feat_cent), N, 1);
+
+    % whitening eigenvalue decomposition
+    [V,D] = eig(cov(feat_cent)); %see help eig
+    W = sqrt(inv(D)) * V' ;
+    z=W* feat_cent'; % Matlab cov() takes sample size into account and scaling is therefore not required
+
+    feat_whit2 = z';
+    %cov(feat_whit2)
+
+
+    % method 3 whitening using  SVD  (inv(S) = diag(1./diag(S) for diagonal matrices if speed is desired)
+
+
+    % or without cov
+    %[U,S,V] = svd(feat_cent,0);
+    %Y = inv(S/sqrt(N-1))*V'*feat_cent'; % Notice the sample size scaling and that singular values S are sqrt of eigenvalues
+
+    feat_out = feat_whit2; % choose whitening method by hand
+    %feat_out=feat_stand;
+
 end
