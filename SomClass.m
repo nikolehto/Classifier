@@ -55,11 +55,24 @@ classdef SomClass
         end
         
         function obj = setClasses(obj, patternArray, classes)
+            winAmountByCluster = cell(obj.mClusters, 1);
             for i = 1:size(patternArray, 1)
                 obj = obj.compute_input(patternArray(i,:));
                 winner = obj.get_minimum(obj.mDeltaVector);
-                obj.mWinnerClasses(winner) = classes(i);
+                %display(['class ', num2str(classes(i)), 'winner ', num2str(winner)]);
+                winAmountByCluster{winner} = [winAmountByCluster{winner}, classes(i)];
             end
+            for i = 1:obj.mClusters
+                %disp(winAmountByCluster{i});
+                %disp(mode(winAmountByCluster{i},2));
+                %disp(obj.mWinnerClasses(i));
+                mostFrequentClass = mode(winAmountByCluster{i},2);
+                if(isscalar(mostFrequentClass))
+                    obj.mWinnerClasses(i) = mostFrequentClass;
+                end
+            end
+            %disp(winAmountByCluster);
+            %disp(obj.mWinnerClasses);
         end
         
         function winner_class = getWinnerClass(obj, vector)

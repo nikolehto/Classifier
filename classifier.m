@@ -78,7 +78,11 @@ function classify()
 % Example: Testing a private interface subfunction:
 
     training_data_file = 'trainingdata.mat';
-    clusters = 32;
+    clusters = 32; % default 32 correctness 58.7%
+                    % default 64 correctness 62,1%
+                    % 64 0.97, 0.007, 0.018  = 58%
+                    % 64 0.9, 0.015, 0.025 = 59.7 
+                    % 128 default 0.012 default = 59.8%
     
     decay_rate = 0.96; % default 0.96
     min_alpha = 0.01; % default 0.01
@@ -87,33 +91,67 @@ function classify()
     load(training_data_file, 'trainingData'); 
     load(training_data_file, 'class_trainingData');
     
-    [m, n] = size(trainingData)
+    [m, n] = size(trainingData);
     
-    learn_data = trainingData(1:4000,:);
-    learn_classes = class_trainingData(1:4000);
-    test_data = trainingData(4001:end,:);
-    test_classes = class_trainingData(4001:end);
+    learn_data = trainingData(1:5000,:);
+    learn_classes = class_trainingData(1:5000);
+    test_data = trainingData(5001:end,:);
+    test_classes = class_trainingData(5001:end);
     clear trainingData;
     clear class_trainingData;
 
+    [learnDataAmount, ~] = size(learn_data);
+    [learnClassAmount, ~] = size(learn_classes);
+    if learnDataAmount == learnClassAmount
+        display('learn size maches');
+    end
+    
+    [testDataAmount, ~] = size(test_data);
+    [testClassAmount, ~] = size(test_classes);
+    if testDataAmount == testClassAmount
+        display('test size maches');
+    end
+    
     mySom = SomClass(clusters, n, min_alpha, decay_rate, radius_reduction);
 
-    startWeights = mySom.mWeightArray;
+    %startWeights = mySom.mWeightArray;
 
     mySom = mySom.training(learn_data);
-    
-    
     
     %mySom.mWeightArray;
     %display('test data: ', test_data(1,:));
 
     mySom = mySom.setClasses(learn_data, learn_classes);
-    mySom = mySom.compute_input(test_data(1,:));
-    winnerclu = mySom.get_minimum(mySom.mDeltaVector);
+    %mySom = mySom.compute_input(test_data(1,:));
+    %winnerclu = mySom.get_minimum(mySom.mDeltaVector);
+    %display([' winner is cluster ', num2str(winnerclu)]);
     
-    display([' winner is cluster ', num2str(winnerclu)]);
-    winnerclass = mySom.getWinnerClass(test_data(1,:));
-    display([' and it is class ', num2str(winnerclu)]);
+    correct = 0;
+
+    for i = 1:testDataAmount 
+        winnerclass = mySom.getWinnerClass(test_data(i,:));
+        %display([' and it is class ', num2str(winnerclass)]);
+        realWinner = test_classes(i);
+        
+        if realWinner == winnerclass
+            correct = correct + 1;
+        end
+    end
+    correctnessRate = correct / testDataAmount;
+    display(['Correctness rate ', num2str(correctnessRate)]);
+    %{
+     for i = 1:learnDataAmount 
+        winnerclass = mySom.getWinnerClass(learn_data(i,:));
+        %display([' and it is class ', num2str(winnerclass)]);
+        realWinner = learn_classes(i);
+        
+        if realWinner == winnerclass
+            correct = correct + 1;
+        end
+    end
+    correctnessRate = correct / learnDataAmount;
+    display(['Correctness rate ', num2str(correctnessRate)]);
+        %}
     %    myDistanceFunction( rand(10,1) , rand(10,1) )
 end
 
