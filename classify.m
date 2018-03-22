@@ -76,27 +76,16 @@ function classify()
 %       FOR TESTING ON SERVER SIDE.
 
 % Example: Testing a private interface subfunction:
-
+    checkResult = 0;
+    
     training_data_file = 'trainingdata.mat';
-    clusters = 32; % default 32 correctness 58.7%
-                    % default 64 correctness 62,1%
-                    % 64 0.97, 0.007, 0.018  = 58%
-                    % 64 0.9, 0.015, 0.025 = 59.7 
-                    % 128 default 0.012 default = 59.8%
-    
-    decay_rate = 0.96; % default 0.96
-    min_alpha = 0.01; % default 0.01
-    radius_reduction =  0.023; % default 0.023
-    
     load(training_data_file, 'trainingData'); 
     load(training_data_file, 'class_trainingData');
-    %trainingData = standardize(trainingData);
-    [m, n] = size(trainingData);
     
-    learn_data = trainingData(1:500,:);
-    learn_classes = class_trainingData(1:500);
-    test_data = trainingData(501:750,:);
-    test_classes = class_trainingData(501:750);
+    learn_data = trainingData(1:5500,:);
+    learn_classes = class_trainingData(1:5500);
+    test_data = trainingData(5501:end,:);
+    test_classes = class_trainingData(5501:end);
     clear trainingData;
     clear class_trainingData;
 
@@ -112,47 +101,36 @@ function classify()
         display('test size maches');
     end
     
-    mySom = SomClass(clusters, n, min_alpha, decay_rate, radius_reduction);
-
-    %startWeights = mySom.mWeightArray;
-
-    mySom = mySom.training(learn_data);
+    mySom = trainClassifier(learn_data, learn_classes);
     
-    %mySom.mWeightArray;
-    %display('test data: ', test_data(1,:));
+    if(checkResult)
+        correct = 0;
 
-    mySom = mySom.setClasses(learn_data, learn_classes);
-    %mySom = mySom.compute_input(test_data(1,:));
-    %winnerclu = mySom.get_minimum(mySom.mDeltaVector);
-    %display([' winner is cluster ', num2str(winnerclu)]);
-    
-    correct = 0;
+        for i = 1:testDataAmount 
+            winnerclass = getWinnerClass(mySom, test_data(i,:));
+            realWinner = test_classes(i);
+            
+            if realWinner == winnerclass
+                correct = correct + 1;
+            end
+        end
+        correctnessRate = correct / testDataAmount;
+        display(['Correctness rate ', num2str(correctnessRate)]);
+    else
+        correct = 0;
+        results = evaluateClassifier(test_data, mySom);
 
-    for i = 1:testDataAmount 
-        winnerclass = mySom.getWinnerClass(test_data(i,:));
-        %display([' and it is class ', num2str(winnerclass)]);
-        realWinner = test_classes(i);
-        
-        if realWinner == winnerclass
-            correct = correct + 1;
+        for i = 1:size(results, 1) 
+            winnerclass = results(i);
+            realWinner = test_classes(i);
+            if realWinner == winnerclass
+                correct = correct + 1;
+            end
         end
+        correctnessRate = correct / testDataAmount;
+        display(['Correctness rate ', num2str(correctnessRate)]);
+            
     end
-    correctnessRate = correct / testDataAmount;
-    display(['Correctness rate ', num2str(correctnessRate)]);
-    %{
-     for i = 1:learnDataAmount 
-        winnerclass = mySom.getWinnerClass(learn_data(i,:));
-        %display([' and it is class ', num2str(winnerclass)]);
-        realWinner = learn_classes(i);
-        
-        if realWinner == winnerclass
-            correct = correct + 1;
-        end
-    end
-    correctnessRate = correct / learnDataAmount;
-    display(['Correctness rate ', num2str(correctnessRate)]);
-        %}
-    %    myDistanceFunction( rand(10,1) , rand(10,1) )
 end
 
 
@@ -181,7 +159,7 @@ end
 % if resubmitting a new version to the ranking system for re-evaluation!
 %%
 function nick = getNickName()
-    nick = 'Class B';   % CHANGE THIS!
+    nick = 'BOT aweSOMe';
 end
 
 
@@ -246,6 +224,20 @@ function parameters = trainClassifier( samples, classes )
 %
 % You are free to remove these comments.
 %
+    %samples = standardize(samples);
+    [sampleAmount, vecLength] = size(samples);
+    [classesAmount, ~] = size(classes);
+    
+    clusters = 64; 
+    decay_rate = 0.96; % default 0.96
+    min_alpha = 0.01; % default 0.01
+    radius_reduction =  0.023; % default 0.023
+
+    mySom = SomClass(clusters, vecLength, min_alpha, decay_rate, radius_reduction);
+    mySom = training(mySom, samples);
+    mySom = setClasses(mySom, samples, classes);
+    
+    parameters = mySom;
 end
 
 
@@ -277,22 +269,31 @@ end
 %            vector in the previous function.
 %%
 function results = evaluateClassifier( samples, parameters )
-%%
-% Insert the function body here!
-%
-% Typically, you must construct the classifier with the given parameters
-% and then apply it to the given data.
-%
-% Note that no learning should take place in this function! The classifier
-% is just applied to the data.
-%
-% Hint: To avoid duplicating e.g. classifier construction code define
-% suitable own functions at the end of this file as subfunctions!
-% You could also utilize nested functions within this function
-% to perform repetitive tasks. See MATLAB help for details.
-%
-% You are free to remove these comments.
-%
+    %%
+    % Insert the function body here!
+    %
+    % Typically, you must construct the classifier with the given parameters
+    % and then apply it to the given data.
+    %
+    % Note that no learning should take place in this function! The classifier
+    % is just applied to the data.
+    %
+    % Hint: To avoid duplicating e.g. classifier construction code define
+    % suitable own functions at the end of this file as subfunctions!
+    % You could also utilize nested functions within this function
+    % to perform repetitive tasks. See MATLAB help for details.
+    %
+    % You are free to remove these comments.
+    %
+    mySom = parameters;
+    
+    [testDataAmount, ~] = size(samples);
+    results = zeros(testDataAmount, 1);
+
+    for i = 1:testDataAmount 
+        winnerclass = getWinnerClass(mySom, samples(i,:));
+        results(i) = winnerclass;
+    end
 end
 
 
@@ -334,15 +335,120 @@ function [feat_out] = standardize(feat_in)
     feat_whit2 = z';
     %cov(feat_whit2)
 
-
     % method 3 whitening using  SVD  (inv(S) = diag(1./diag(S) for diagonal matrices if speed is desired)
-
-
     % or without cov
     %[U,S,V] = svd(feat_cent,0);
     %Y = inv(S/sqrt(N-1))*V'*feat_cent'; % Notice the sample size scaling and that singular values S are sqrt of eigenvalues
 
     feat_out = feat_whit2; % choose whitening method by hand
     %feat_out=feat_stand;
-
 end
+
+% SOM starts
+% based on http://mnemstudio.org/ai/nn/som_python_ex2.txt
+function obj = SomClass(clusters, vectorLength, minAlpha, decayRate, reductionPoint)
+    if (nargin == 5)
+        obj.mClusters = clusters;
+        obj.mVectorLength = vectorLength;
+        obj.mMinAlpha = minAlpha;
+        obj.mDecayRate = decayRate;
+        obj.mReductionPoint = reductionPoint;
+        obj.mWeightArray = rand(obj.mClusters, obj.mVectorLength);
+        obj.mWinnerClasses = zeros(obj.mClusters, 1);
+        obj.mDeltaVector = zeros(obj.mClusters, 1);
+        obj.mAlpha = 0.6;
+    else
+        disp('somclass - wrong argument count');
+    end
+end
+
+function obj = compute_input(obj, vector)
+    obj.mDeltaVector = zeros(obj.mClusters, 1);
+    for i = 1:obj.mClusters
+        d = obj.mWeightArray(i,:) - vector;
+        obj.mDeltaVector(i) = sum(d.^2);
+    end
+end
+
+function minimum = get_minimum(nodeArray)
+    [~, minimum] = min(nodeArray); % save index to minimum
+end
+
+function obj = setClasses(obj, patternArray, classes)
+    winAmountByCluster = cell(obj.mClusters, 1);
+    for i = 1:size(patternArray, 1)
+        obj = compute_input(obj, patternArray(i,:));
+        winner = get_minimum(obj.mDeltaVector);
+        winAmountByCluster{winner} = [winAmountByCluster{winner}, classes(i)];
+    end
+    for i = 1:obj.mClusters
+        mostFrequentClass = mode(winAmountByCluster{i},2);
+        if(isscalar(mostFrequentClass))
+            obj.mWinnerClasses(i) = mostFrequentClass;
+        end
+    end
+end
+
+function winner_class = getWinnerClass(obj, vector)
+    obj = compute_input(obj, vector);
+    cluster = get_minimum(obj.mDeltaVector);
+    winner_class = obj.mWinnerClasses(cluster);
+end
+
+function obj = training(obj, patternArray)
+    iterations = 0;
+    reductionFlag = false;
+    reductionPoint = 0;
+
+    while obj.mAlpha > obj.mMinAlpha
+        iterations = iterations + 1;
+        for i = 1:size(patternArray, 1)
+            obj = compute_input(obj, patternArray(i,:));
+            dMin = get_minimum(obj.mDeltaVector);
+            obj = update_weights(obj, i, dMin, patternArray);
+        end
+        % Reduce the learning rate.
+        obj.mAlpha = obj.mDecayRate * obj.mAlpha;
+
+        % Reduce radius at specified point.
+        if obj.mAlpha < obj.mReductionPoint
+            if reductionFlag == false
+                reductionFlag = true;
+                reductionPoint = iterations;
+            end
+        end
+    end
+    %{
+    display(['Iterations: ', num2str(iterations)  ])
+    display(['Neighborhood radius reduced after ', num2str(reductionPoint), ' iterations'])
+    display(['obj mAlpha: ', num2str(obj.mAlpha)  ])
+    display(['obj mMinAlpha ', num2str(obj.mMinAlpha) ])
+    %}
+end
+
+function obj = update_weights(obj, vectorNumber, dMin, patternArray)
+    for i = 1:obj.mVectorLength
+        % Update the winner.
+        obj.mWeightArray(dMin, i) = obj.mWeightArray(dMin, i) + (obj.mAlpha * (patternArray(vectorNumber, i) - obj.mWeightArray(dMin, i)));
+
+        % Only include neighbors before radius reduction point is reached.
+        if obj.mAlpha > obj.mReductionPoint
+            if (dMin > 1) && (dMin < (obj.mClusters)) % TODO : CHECK THIS 
+                % Update neighbor to the left...
+                obj.mWeightArray(dMin - 1, i) = obj.mWeightArray(dMin - 1, i) + (obj.mAlpha * (patternArray(vectorNumber, i) - obj.mWeightArray(dMin - 1, i)));
+                % and update neighbor to the right.
+                obj.mWeightArray(dMin + 1, i) = obj.mWeightArray(dMin + 1, i) + (obj.mAlpha * (patternArray(vectorNumber, i) - obj.mWeightArray(dMin + 1, i)));
+            else
+                if dMin == 1 % TODO : CHECK
+                    % Update neighbor to the right.
+                    obj.mWeightArray(dMin + 1, i) = obj.mWeightArray(dMin + 1, i) + (obj.mAlpha * (patternArray(vectorNumber, i) - obj.mWeightArray(dMin + 1, i)));
+                else
+                    % Update neighbor to the left.
+                    obj.mWeightArray(dMin - 1, i) = obj.mWeightArray(dMin - 1, i) + (obj.mAlpha * (patternArray(vectorNumber, i) - obj.mWeightArray(dMin - 1, i)));
+
+                end
+            end
+        end
+    end
+end           
+   
