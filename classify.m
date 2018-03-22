@@ -39,22 +39,6 @@
 % OUTPUT: none (change if you wish)
 %%
 function classify()
-%%
-% This function is a place-holder for your testing code. This is not used
-% by the server when validating your classifier.
-%
-% Since the name of this function is the same as the file-name, this
-% function is called when executing classify command in the MATLAB
-% given that the m-file is in the path or the current folder of MATLAB.
-%
-% In essence, you can use this function as a main function of your code.
-% You can use this method to test code as you are implementing or
-% debugging required functionalities to this file.
-%
-% You must not change the name of this function or the name of this file!
-% However, you may add and modify the input and output variables as you
-% wish to suit your needs.
-%
 % Typically, you could: 
 % - Load the data.
 % - Split the data to training and validation sets.
@@ -63,29 +47,17 @@ function classify()
 %   evaluateClassifier).
 % - Calculate performance statistics (accuracy, sensitivity, specificity,
 %   etc.)
-%
-% Based on the above procedure, you can try different approaches to find 
-% out what would be the best way to implement the classifier training 
-% and evaluation.
-%
-% You are free to remove these comments.
-%
-% NOTE: FILE SYSTEM COMMANDS AND/OR SYSTEM COMMANDS ARE PROHIBITED
-%       ON SERVER! PLEASE REMOVE ANY SUCH COMMANDS BEFORE SUBMISSION!
-%       YOU CAN E.G. DELETE/EMPTY THIS FUNCTION AS IT IS NOT USED
-%       FOR TESTING ON SERVER SIDE.
-
-% Example: Testing a private interface subfunction:
+    %{
     checkResult = 0;
     
     training_data_file = 'trainingdata.mat';
-    load(training_data_file, 'trainingData'); 
-    load(training_data_file, 'class_trainingData');
+    %load(training_data_file, 'trainingData'); 
+    %load(training_data_file, 'class_trainingData');
     
     learn_data = trainingData(1:5500,:);
     learn_classes = class_trainingData(1:5500);
     test_data = trainingData(5501:end,:);
-    test_classes = class_trainingData(5501:end);
+    test_classes = class_trainingData(5501:end); %#ok<COLND>
     clear trainingData;
     clear class_trainingData;
 
@@ -131,6 +103,7 @@ function classify()
         display(['Correctness rate ', num2str(correctnessRate)]);
             
     end
+    %}
 end
 
 
@@ -159,7 +132,7 @@ end
 % if resubmitting a new version to the ranking system for re-evaluation!
 %%
 function nick = getNickName()
-    nick = 'BOT aweSOMe';
+    nick = 'BOT_Zed';
 end
 
 
