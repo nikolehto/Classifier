@@ -51,8 +51,8 @@ function classify()
     dataSize = 0; % if 0 use whole data set
     
     training_data_file = 'trainingdata.mat';
-    %load(training_data_file, 'trainingData'); 
-    %load(training_data_file, 'class_trainingData');
+    load(training_data_file, 'trainingData'); 
+    load(training_data_file, 'class_trainingData');
 
     if dataSize && dataSize < size(trainingData,1) %#ok<NODEF>
         learn_data = trainingData(1:(floor(2/3*dataSize)),:);
@@ -80,11 +80,11 @@ function classify()
         display('test size matches');
     end
     
-    mySom = trainClassifier(learn_data, learn_classes);
+    parameters = trainClassifier(learn_data, learn_classes);
     
   
     correct = 0;
-    results = evaluateClassifier(test_data, mySom);
+    results = evaluateClassifier(test_data, parameters);
 
     for i = 1:size(results, 1) 
         winnerclass = results(i);
@@ -189,42 +189,37 @@ function parameters = trainClassifier( samples, classes )
 %
 % You are free to remove these comments.
 %
+    max_k = 5;
     %samples = standardize(samples);
-    [~, vecLength] = size(samples);
-    [classesSize, ~] = size(classes);
+    [~, num_features] = size(samples);
     
-    difClasses = unique(classes);
-    multiClass = zeros(classesSize, size(difClasses, 1));
-    
-    for i=1:classesSize
-        for j=1:size(difClasses, 1)
-            %multiClass(i,j) = -1;
-            if classes(i) == difClasses(j) 
-                multiClass(i,j) = 1;
+	% Train feature vector
+    fvector = zeros(num_features,1);
+    best_result = 0;
+	for k = 1:max_k
+        t_fvector = zeros(num_features,1);
+        t_best_result = 0;
+        for in = 1:num_features
+            [best_result_add, best_feature_add] = forwardsearch(samples, classes, t_fvector, k);
+            % Update the feature vector
+            t_fvector(best_feature_add) = 1;
+
+            % Save best result
+            if(t_best_result < best_result_add)
+                t_best_result = best_result_add;
+                t_best_fvector = t_fvector;
+                if(best_result < best_result_add)
+                    best_result = best_result_add;
+                    best_fvector = t_fvector;
+                    best_k = k;
+                end
             end
         end
-    end
-    
-    %display(classes);
-    %display(multiClass(:,1));
-    %display(multiClass(:,2));
-    %display(multiClass(:,3));
-    
-    clusters = 21; 
-    decay_rate = 0.96; % default 0.96
-    min_alpha = 0.01; % default 0.01
-    radius_reduction =  0.023; % default 0.023
-    
-    %SomClass(clusters, vecLength, min_alpha, decay_rate, radius_reduction);
-    %parameters = zeros(size(difClasses, 2), 1);
-    for j=1:size(difClasses, 1)
-        mySom = SomClass(clusters, vecLength, min_alpha, decay_rate, radius_reduction, difClasses(j));
-        mySom = training(mySom, samples);
-        mySom = setClasses(mySom, samples, multiClass(:,j));
-        %display(mySom.mWeightArray);
-        parameters(j) = mySom;  %#ok<AGROW>
-    end
-    %parameters = mySom;
+	end
+    parameters.trainingData = samples;
+    parameters.trainingClasses = classes;
+    parameters.k = best_k;
+    parameters.best_fvector = best_fvector;
 end
 
 
@@ -273,25 +268,15 @@ function results = evaluateClassifier( samples, parameters )
     % You are free to remove these comments.
     %
     %mySom = parameters;
+    %samples = standardize(samples);
+    [~, ~] = size(samples);
     
-    [testDataAmount, ~] = size(samples);
-    results = zeros(testDataAmount, 1);
-
-    for i = 1:testDataAmount
-        maxProbability = -1.0;
-        for j = 1:size(parameters,2) % TODO check if correct
-            mySom = parameters(j);
-            %display(mySom.mWeightArray);
-            probability = getTrueProbabiltiy(mySom, samples(i,:));
-            %getWinnerProbability
-            if(probability > maxProbability) 
-                maxProbability = probability;
-                winnerclass = mySom.mClass;
-            else
-            end
-        end
-        results(i) = winnerclass;
-    end
+    training_class = parameters.trainingClasses;
+    training_samples = parameters.trainingData;
+    best_fvector = parameters.best_fvector;
+    k = parameters.k;
+    %results = zeros(N, 1);
+    results = knnclass(samples, training_samples, best_fvector, training_class, k);
     %display(results);
 end
 
@@ -320,149 +305,66 @@ function d = myDistanceFunction( x, y )
 end
 
 % From ex7
+function feat_in = standardize(feat_in)
+	N = size(feat_in,1); 
+	% centering
+	feat_cent = feat_in-repmat(mean(feat_in), N, 1);
+	% standardization
+	% feat_stand = feat_cent./repmat(std(feat_cent), N, 1);
 
-function [feat_out] = standardize(feat_in)
-    N = size(feat_in,1); 
-    % centering
-    feat_cent = feat_in-repmat(mean(feat_in), N, 1);
-    % standardization
-    %feat_stand = feat_cent./repmat(std(feat_cent), N, 1);
+	% whitening eigenvalue decomposition
+	[V,D] = eig(cov(feat_cent)); %see help eig
+	W = sqrt(inv(D)) * V' ;
+	z=W* feat_cent'; % Matlab cov() takes sample size into account and scaling is therefore not required
 
-    % whitening eigenvalue decomposition
-    [V,D] = eig(cov(feat_cent)); %see help eig
-    W = sqrt(inv(D)) * V' ;
-    z=W* feat_cent'; % Matlab cov() takes sample size into account and scaling is therefore not required
+	feat_whit2 = z';
+	%cov(feat_whit2)
 
-    feat_whit2 = z';
-    %cov(feat_whit2)
 
-    % method 3 whitening using  SVD  (inv(S) = diag(1./diag(S) for diagonal matrices if speed is desired)
-    % or without cov
-    %[U,S,V] = svd(feat_cent,0);
-    %Y = inv(S/sqrt(N-1))*V'*feat_cent'; % Notice the sample size scaling and that singular values S are sqrt of eigenvalues
+	% method 3 whitening using  SVD  (inv(S) = diag(1./diag(S) for diagonal matrices if speed is desired)
 
-    feat_out = feat_whit2; % choose whitening method by hand
-    %feat_out=feat_stand;
+
+	% or without cov
+	%[U,S,V] = svd(feat_cent,0);
+	%Y = inv(S/sqrt(N-1))*V'*feat_cent'; % Notice the sample size scaling and that singular values S are sqrt of eigenvalues
+
+	feat_in = feat_whit2; % choose whitening method by hand
+	%feat_out=feat_stand;
 end
 %}
-% SOM starts
-% based on http://mnemstudio.org/ai/nn/som_python_ex2.txt
-% Ver2.0 false true detection with accuraty
-function obj = SomClass(clusters, vectorLength, minAlpha, decayRate, reductionPoint, class)
-    if (nargin == 6)
-        obj.mClusters = clusters;
-        obj.mVectorLength = vectorLength;
-        obj.mMinAlpha = minAlpha;
-        obj.mDecayRate = decayRate;
-        obj.mReductionPoint = reductionPoint;
-        obj.mWeightArray = rand(obj.mClusters, obj.mVectorLength);
-        obj.mTrueProbability = zeros(obj.mClusters, 1);
-        obj.mClass = class;
-        obj.mDeltaVector = zeros(obj.mClusters, 1);
-        obj.mAlpha = 0.6;
-    else
-        disp('somclass - wrong argument count');
-    end
+function predictedLabels = knnclass(dat1, dat2, fvec, classes, k)
+	p1 = pdist2( dat1(:,logical(fvec)), dat2(:,logical(fvec)) );
+	% Here we aim in finding k-smallest elements
+	[~, I] = sort(p1', 1);
+	I = I(1:k+1, :);
+	labels = classes( : )';
+	if k == 1 % this is for k-NN, k = 1
+		predictedLabels = labels( I(2, : ) )';
+	else % this is for k-NN, other odd k larger than 1
+		predictedLabels = mode( labels( I( 1+(1:k), : ) ), 1)'; % see help mode
+	end
 end
 
-function obj = compute_input(obj, vector)
-    obj.mDeltaVector = zeros(obj.mClusters, 1);
-    for i = 1:obj.mClusters
-        d = obj.mWeightArray(i,:) - vector;
-        obj.mDeltaVector(i) = sum(d.^2);
-    end
-end
+function [best, feature] = forwardsearch(data, data_c, fvector, k)
+	% SFS, from previous lesson.
 
-function minimum = get_minimum(nodeArray)
-    [~, minimum] = min(nodeArray); % save index to minimum
-end
+	num_samples = length(data);
+	best = 0;
+	feature = 0;
 
-function obj = setClasses(obj, patternArray, classes)
-    truesPerCluster = zeros(obj.mClusters,1);
-    falsesPerCluster = zeros(obj.mClusters,1);
-    for i = 1:size(patternArray, 1)
-        obj = compute_input(obj, patternArray(i,:));
-        winner = get_minimum(obj.mDeltaVector);
-        if classes(i) == 1
-        	truesPerCluster(winner) = truesPerCluster(winner) + 1;
-        else
-            falsesPerCluster(winner) = falsesPerCluster(winner) + 1;
-        end
-    end
-    for i = 1:obj.mClusters
-        if (truesPerCluster(i) + falsesPerCluster(i) > 0)
-            obj.mTrueProbability(i) = truesPerCluster(i) / (truesPerCluster(i) + falsesPerCluster(i));
-        
-        %elseif (truesPerCluster(i) + falsesPerCluster(i) > 0)
-        %    p = truesPerCluster(i) / (truesPerCluster(i) + falsesPerCluster(i));
-        %    obj.mTrueProbability(i) = (1*0.5 + (truesPerCluster(i) + falsesPerCluster(i))*p) / (1 + truesPerCluster(i) + falsesPerCluster(i));
-        else
-            obj.mTrueProbability(i) = 0.5;
-        end
-        
-    end
-end
-
-function probability = getTrueProbabiltiy(obj, vector)
-    obj = compute_input(obj, vector);
-    cluster = get_minimum(obj.mDeltaVector);
-    probability = obj.mTrueProbability(cluster);
-end
-
-function obj = training(obj, patternArray)
-    iterations = 0;
-    reductionFlag = false;
-    %reductionPoint = 0;
-
-    while obj.mAlpha > obj.mMinAlpha
-        iterations = iterations + 1;
-        for i = 1:size(patternArray, 1)
-            obj = compute_input(obj, patternArray(i,:));
-            dMin = get_minimum(obj.mDeltaVector);
-            obj = update_weights(obj, i, dMin, patternArray);
-        end
-        % Reduce the learning rate.
-        obj.mAlpha = obj.mDecayRate * obj.mAlpha;
-
-        % Reduce radius at specified point.
-        if obj.mAlpha < obj.mReductionPoint
-            if reductionFlag == false
-                reductionFlag = true;
-                %reductionPoint = iterations;
+	for in = 1:length(fvector)
+        if (fvector(in) == 0)
+			fvector(in) = 1;
+			% Classify using k-NN
+			predictedLabels = knnclass(data, data, fvector, data_c, k);
+			correct = sum(predictedLabels == data_c); % the number of correct predictions
+			result = correct/num_samples; % accuracy
+            if(result > best)
+				best = result;
+				feature = in;
             end
+            fvector(in) = 0;
         end
-    end
-    %{
-    display(['Iterations: ', num2str(iterations)  ])
-    display(['Neighborhood radius reduced after ', num2str(reductionPoint), ' iterations'])
-    display(['obj mAlpha: ', num2str(obj.mAlpha)  ])
-    display(['obj mMinAlpha ', num2str(obj.mMinAlpha) ])
-    %}
+	end
 end
-
-function obj = update_weights(obj, vectorNumber, dMin, patternArray)
-    for i = 1:obj.mVectorLength
-        % Update the winner.
-        obj.mWeightArray(dMin, i) = obj.mWeightArray(dMin, i) + (obj.mAlpha * (patternArray(vectorNumber, i) - obj.mWeightArray(dMin, i)));
-
-        % Only include neighbors before radius reduction point is reached.
-        if obj.mAlpha > obj.mReductionPoint
-            if (dMin > 1) && (dMin < (obj.mClusters))
-                % Update neighbor to the left...
-                obj.mWeightArray(dMin - 1, i) = obj.mWeightArray(dMin - 1, i) + (obj.mAlpha * (patternArray(vectorNumber, i) - obj.mWeightArray(dMin - 1, i)));
-                % and update neighbor to the right.
-                obj.mWeightArray(dMin + 1, i) = obj.mWeightArray(dMin + 1, i) + (obj.mAlpha * (patternArray(vectorNumber, i) - obj.mWeightArray(dMin + 1, i)));
-            else
-                if dMin == 1 % TODO : CHECK
-                    % Update neighbor to the right.
-                    obj.mWeightArray(dMin + 1, i) = obj.mWeightArray(dMin + 1, i) + (obj.mAlpha * (patternArray(vectorNumber, i) - obj.mWeightArray(dMin + 1, i)));
-                else
-                    % Update neighbor to the left.
-                    obj.mWeightArray(dMin - 1, i) = obj.mWeightArray(dMin - 1, i) + (obj.mAlpha * (patternArray(vectorNumber, i) - obj.mWeightArray(dMin - 1, i)));
-
-                end
-            end
-        end
-    end
-end           
    
